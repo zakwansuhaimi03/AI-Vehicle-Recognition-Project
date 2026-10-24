@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Vehicle Recognition</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.1/socket.io.js"></script>
+    <style>
+        body {
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 5px;
+            font-family: 'Roboto', Arial, sans-serif;
+            color: #333;
+            height: 100vh;
+            max-height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            left: 0;
+        }
+
+        /* ── Logo header ── */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            padding: 8px 0 4px 0;
+            flex-shrink: 0;
+            height: 70px;
+            min-height: 70px;
+            max-height: 70px;
+        }
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            flex-shrink: 0;
+        }
+        .logo-text {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.1;
+        }
+        .logo-title {
+            font-size: 1.6em;
+            font-weight: 700;
+            color: #2c3e50;
+            letter-spacing: 1px;
+        }
+        .logo-sub {
+            display: none;
+        }
+
+        /* ── Main container ── */
+        .container {
+            display: flex;
+            flex-direction: row;
+            gap: 20px;
+            width: 100%;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 15px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            padding: 10px;
+            align-items: stretch;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+            box-sizing: border-box;
+            height: 100%;
+        }
+        .video, .info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            min-height: 0;
+            overflow: hidden;
+            height: 100%;
+            align-self: stretch;
+        }
+        .video {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+        .video img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border: 4px solid #ddd;
+            border-radius: 10px;
+            display: block;
+            flex: 1;
+            min-height: 0;
+        }
+        .video-controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+        }
+        .video-controls select {
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            font-size: 1em;
+            background-color: rgba(255, 255, 255, 0.8);
+        }
+        .vehicle-count {
+            margin-top: 6px;
+            flex-shrink: 0;
+        }
+        .vehicle-count p {
+            margin: 0 0 5px 0;
+            font-size: 1em;
+        }
+        .type-counts {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 4px;
+            font-size: 0.85em;
+            color: #555;
+        }
+        .type-counts span {
+            background: #f0f2f5;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 3px 9px;
+        }
+        .type-counts span b { color: #007bff; }
+
+        /* ── Info panel ── */
+        .info {
+            padding: 10px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 0;
+        }
+        h2 {
+            color: #2c3e50;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        .summary-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 10px;
+            word-wrap: break-word;
+            min-height: 0;
+            max-height: 160px;
+        }
+        /* Summary wrapper fixed small, goto panel takes remaining space */
+        .summary-wrapper {
+            flex: 0 0 auto;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            white-space: pre-wrap;
+            font-size: 0.95em;
+            line-height: 1.7;
+            overflow-x: auto;
+            font-family: 'Roboto', Arial, sans-serif;
+            color: #1a1a2e;
+            font-weight: 500;
+            letter-spacing: 0.2px;
+        }
+        #vehicle-count {
+            font-weight: bold;
+            color: #007bff;
+            font-size: 1.1em;
+        }
+        audio {
+            margin-top: 10px;
+            width: 100%;
+            border-radius: 5px;
+            outline: none;
+        }
+        button {
+            margin-top: 10px;
+            padding: 8px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        button:hover { background-color: #0056b3; }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin: 5px auto;
+            display: none;
+        }
+        .loader.visible { display: block; }
+        @keyframes spin {
+            0%  { transform: rotate(0deg); }
+            100%{ transform: rotate(360deg); }
+        }
+
+        /* ── Detection list ── */
+        .detection-list-wrap {
+            margin-bottom: 8px;
+        }
+        .detection-list-title {
+            font-size: 0.78em;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 6px;
+            letter-spacing: 0.5px;
+        }
+        #detection-list {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+        }
+        .det-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 6px 10px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .det-item:hover { border-color: #007bff; background: #f0f7ff; }
+        .det-item.det-selected {
+            border-color: #ffc107;
+            background: #fffbf0;
+        }
+        .det-info { display: flex; align-items: center; gap: 8px; }
+        .det-type {
+            font-weight: 700;
+            font-size: 0.85em;
+            color: #2c3e50;
+        }
+        .det-conf {
+            font-size: 0.75em;
+            color: #888;
+            background: #e9ecef;
+            padding: 1px 6px;
+            border-radius: 3px;
+        }
+        .goto-vehicle-btn {
+            padding: 4px 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.78em;
+            font-weight: 600;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .goto-vehicle-btn:hover { background: #0056b3; }
+        .goto-vehicle-btn.selected {
+            background: #ffc107;
+            color: #333;
+        }
+        .goto-vehicle-btn.lost {
+            background: #adb5bd;
+            color: #fff;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .goto-vehicle-btn.engaged {
+            background: #dc3545;
+            color: #fff;
+        }
+        .goto-vehicle-btn.engaged:hover { background: #b02a37; }
+
+        /* ── Pixhawk inline button in type-counts row ── */
+        .pixhawk-inline-btn {
+            padding: 0 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.82em;
+            font-weight: 600;
+            height: 28px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin: 0;
+            flex-shrink: 0;
+        }
+        .pixhawk-inline-btn:hover { background: #0056b3; }
+
+        .landing-btn {
+            background: #6f42c1;
+        }
+        .landing-btn:hover { background: #5a32a3; }
+        .landing-btn.active {
+            background: #fd7e14;
+            animation: landing-pulse 1.4s ease-in-out infinite;
+        }
+        .landing-btn.landed {
+            background: #28a745;
+        }
+
+        /* ── Flight mode dropdown ── */
+        .flight-mode-wrap {
+            position: relative;
+            display: inline-flex;
+        }
+        .flight-mode-dropdown {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 0;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            overflow: hidden;
+            z-index: 50;
+            min-width: 180px;
+        }
+        .flight-mode-dropdown.show { display: block; }
+        .flight-mode-option {
+            display: block;
+            width: 100%;
+            padding: 10px 14px;
+            background: white;
+            border: none;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+            font-size: 0.85em;
+            font-weight: 600;
+            color: #333;
+            cursor: pointer;
+        }
+        .flight-mode-option:last-child { border-bottom: none; }
+        .flight-mode-option:hover:not(:disabled) { background: #f0f4ff; }
+        .flight-mode-option:disabled {
+            color: #aaa;
+            cursor: not-allowed;
+            background: #f7f7f7;
+        }
+        .flight-mode-option .current-tag {
+            float: right;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+        @keyframes landing-pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(253,126,20,0.6); }
+            50%      { box-shadow: 0 0 0 6px rgba(253,126,20,0); }
+        }
+        .landing-status-bar {
+            margin-top: 6px;
+            font-size: 0.78em;
+            color: #555;
+            display: flex;
+            gap: 14px;
+            align-items: center;
+        }
+        .landing-status-bar #landing-state-text {
+            font-weight: 600;
+            text-transform: capitalize;
+        }
+        .mav-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ccc;
+            flex-shrink: 0;
+        }
+        .mav-dot.connected { background: #28a745; box-shadow: 0 0 6px #28a745; }
+        .mav-dot.simulated { background: #ffc107; box-shadow: 0 0 6px #ffc107; }
+        .mav-dot.disconnected { background: #dc3545; }
+
+        /* ── Go-to panel (replaces mavlink-panel) ── */
+        .goto-panel {
+            margin-top: 10px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-top: 2px solid #007bff;
+            padding-top: 10px;
+            min-height: 0;
+            overflow: hidden;
+        }
+        .goto-panel .detection-list-wrap {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+            margin-bottom: 0;
+        }
+
+        /* ── Bottom nav links ── */
+
+
+        /* Logo top left */
+        .logo-corner {
+            position: fixed;
+            top: 10px;
+            left: 15px;
+            z-index: 100;
+        }
+        .logo-corner img {
+            height: 70px;
+            width: auto;
+            object-fit: contain;
+        }
+
+        @media (max-width: 768px) {
+            .container { flex-direction: column; max-height: 70vh; }
+            .video, .info { height: auto; }
+            .logo-title { font-size: 1.2em; }
+        }
+    </style>
+    <script>
+        const socket = io();
+
+        socket.on('vehicle_count_update', function(data) {
+            document.getElementById('vehicle-count').innerText = data.vehicle_count;
+            document.getElementById('cnt-car').innerText   = data.car;
+            document.getElementById('cnt-van').innerText   = data.van;
+            document.getElementById('cnt-moto').innerText  = data.motorcycle;
+            document.getElementById('cnt-lorry').innerText = data.lorry;
+            document.getElementById('cnt-bus').innerText   = data.bus;
+        });
+
+        socket.on('summary_update', function(data) {
+            document.querySelector('.summary-content pre').innerText = filterSummary(data.summary);
+            document.getElementById('ai-loader').classList.remove('visible');
+        });
+
+
+
+
+
+        function changeVideoSource() {
+            const select  = document.getElementById('video-source');
+            const rtspRow = document.getElementById('rtsp-input-row');
+            const val     = select.value;
+
+            // Show RTSP input row and wait for user to enter URL
+            if (val === '__rtsp__') {
+                rtspRow.style.display = 'flex';
+                return;
+            } else {
+                rtspRow.style.display = 'none';
+            }
+
+            const source = (val === '__cam0__') ? '__cam0__' : val;
+            socket.emit('change_video_source', { source: source });
+            document.getElementById('ai-loader').classList.add('visible');
+            document.querySelector('.summary-content pre').innerText = 'Analysing new source...';
+            Object.values(pendingRemoval).forEach(t => clearTimeout(t));
+            pendingRemoval = {}; displayedDets = [];
+            currentDetections = []; selectedId = null;
+            renderDetectionList([]);
+        }
+
+        function applyRtsp() {
+            const url = document.getElementById('rtsp-url').value.trim();
+            if (!url) { alert('Please enter an RTSP URL.\nExample: rtsp://192.168.1.1/stream'); return; }
+            socket.emit('change_video_source', { source: url });
+            document.getElementById('ai-loader').classList.add('visible');
+            document.querySelector('.summary-content pre').innerText = 'Connecting to RTSP stream...';
+            Object.values(pendingRemoval).forEach(t => clearTimeout(t));
+            pendingRemoval = {}; displayedDets = [];
+            currentDetections = []; selectedId = null;
+            renderDetectionList([]);
+        }
+
+        function filterSummary(raw) {
+            // Output is already clean from server-side reformat_description()
+            // Just return as-is
+            return raw ? raw.trim() : '';
+        }
+
+        function updateSummary() {
+            fetch('/get_summary')
+                .then(r => r.text())
+                .then(data => {
+                    if (data) {
+                        document.querySelector('.summary-content pre').innerText = filterSummary(data);
+                    }
+                }).catch(() => {});
+        }
+        setInterval(updateSummary, 5000);
+        updateSummary();
+
+        // ── MAVLink JS ─────────────────────────────
+        let currentDetections = [];
+        let selectedId        = null;
+
+        // ── 10-second disappear timer ────────────────
+        const DISAPPEAR_DELAY = 10000;
+        let pendingRemoval = {};
+        let displayedDets  = [];
+        let engagedId      = null;   // id of the vehicle currently being flown toward, if any
+
+        socket.on('mavlink_status', function(data) {
+            const dot = document.getElementById('mav-dot');
+            if (!dot) return;
+            dot.className = 'mav-dot ' + data.status;
+        });
+
+        // Sets the flight-mode label text AND its colour together, so all
+        // three places that update it (socket event, button click,
+        // page-load fetch) stay consistent. UNKNOWN/STABILIZE are shown
+        // in black; other modes (e.g. RTL) keep the default button colour.
+        // Also updates the dropdown so whichever mode we're CURRENTLY in
+        // shows as disabled — the only clickable option is the other one.
+        let currentFlightMode = 'UNKNOWN';
+
+        function setFlightModeLabel(mode) {
+            currentFlightMode = mode;
+            const label = document.getElementById('flight-mode-label');
+            if (label) {
+                label.innerText = mode;
+                label.style.color = (mode === 'UNKNOWN' || mode === 'STABILIZE') ? 'black' : '';
+            }
+
+            const stabilizeOpt = document.getElementById('flight-mode-opt-stabilize');
+            const rtlOpt       = document.getElementById('flight-mode-opt-rtl');
+            if (stabilizeOpt && rtlOpt) {
+                stabilizeOpt.disabled = (mode === 'STABILIZE');
+                rtlOpt.disabled       = (mode === 'RTL');
+                stabilizeOpt.innerHTML = '🟢 Stabilize' + (mode === 'STABILIZE' ? ' <span class="current-tag">(current)</span>' : '');
+                rtlOpt.innerHTML       = '🔴 Return (RTL)' + (mode === 'RTL' ? ' <span class="current-tag">(current)</span>' : '');
+            }
+        }
+
+        socket.on('flight_mode_update', function(data) {
+            setFlightModeLabel(data.mode);
+        });
+
+        socket.on('drone_cmd', function(data) {
+            const log = document.getElementById('cmd-log');
+            if (!log) return;
+            const p = document.createElement('p');
+            p.innerText = data.log;
+            log.appendChild(p);
+            log.scrollTop = log.scrollHeight;
+            while (log.children.length > 10) log.removeChild(log.firstChild);
+        });
+
+        socket.on('detections_update', function(data) {
+            const incoming    = data.detections || [];
+            const incomingIds = new Set(incoming.map(d => d.id));
+            currentDetections = incoming;
+
+            incoming.forEach(d => {
+                const idx = displayedDets.findIndex(x => x.id === d.id);
+                if (idx >= 0) displayedDets[idx] = d;
+                else displayedDets.push(d);
+                if (pendingRemoval[d.id]) {
+                    clearTimeout(pendingRemoval[d.id]);
+                    delete pendingRemoval[d.id];
+                }
+            });
+
+            displayedDets.forEach(d => {
+                if (!incomingIds.has(d.id) && !pendingRemoval[d.id]) {
+                    pendingRemoval[d.id] = setTimeout(() => {
+                        displayedDets = displayedDets.filter(x => x.id !== d.id);
+                        delete pendingRemoval[d.id];
+                        if (selectedId === d.id) selectedId = null;
+                        renderDetectionList(displayedDets);
+                    }, DISAPPEAR_DELAY);
+                }
+            });
+
+            // Sort by numeric suffix ascending (CAR01, CAR02, CAR03...)
+            displayedDets.sort((a, b) => {
+                const numA = parseInt(a.id.replace(/[^0-9]/g, ''), 10) || 0;
+                const numB = parseInt(b.id.replace(/[^0-9]/g, ''), 10) || 0;
+                return numA - numB;
+            });
+
+            renderDetectionList(displayedDets);
+        });
+
+        function capitalise(s) {
+            return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+        }
+
+        function renderDetectionList(dets) {
+            const list = document.getElementById('detection-list');
+            if (!list) return;
+            if (!dets || dets.length === 0) {
+                list.innerHTML = '<p style="color:#aaa;font-size:0.82em;margin:6px 0;">No vehicles detected</p>';
+                return;
+            }
+
+            list.innerHTML = dets.map(d => {
+                const isSelected = (d.id === selectedId);
+                const isLost     = !!pendingRemoval[d.id];
+                const isEngaged  = (d.id === engagedId);
+                const rowClick = isLost ? '' : `selectVehicle('${d.id}')`;
+                const btnClick = isLost ? '' : `event.stopPropagation(); gotoVehicle('${d.id}')`;
+                const btnClass = isLost ? 'lost' : (isEngaged ? 'engaged' : (isSelected ? 'selected' : ''));
+                const btnLabel = isEngaged ? '■ Stop' : '✈ Go to';
+
+                return `
+                <div class="det-item ${isSelected && !isLost ? 'det-selected' : ''}"
+                     id="det-item-${d.id}"
+                     style="${isLost ? 'opacity:0.4;' : ''}"
+                     onclick="${rowClick}">
+                    <div class="det-info">
+                        <span class="det-type">${d.id}</span>
+                    </div>
+                    <button class="goto-vehicle-btn ${btnClass}"
+                            onclick="${btnClick}">
+                        ${btnLabel}
+                    </button>
+                </div>`;
+            }).join('');
+        }
+
+        function selectVehicle(id) {
+            selectedId = (selectedId === id) ? null : id;
+            renderDetectionList(displayedDets);
+        }
+
+        async function gotoVehicle(id) {
+            const det = currentDetections.find(d => d.id === id)
+                     || displayedDets.find(d => d.id === id);
+            if (!det) return;
+
+            const log = document.getElementById('cmd-log');
+            function logLine(text, sim) {
+                if (!log) return;
+                const p = document.createElement('p');
+                p.innerText = (sim ? '[SIM] ' : '[REAL] ') + text;
+                log.appendChild(p);
+                log.scrollTop = log.scrollHeight;
+            }
+
+            // Pressing "Go to" on the vehicle currently being flown toward
+            // stops the approach instead of starting a new one.
+            if (engagedId === id) {
+                const res = await fetch('/api/cancel_engagement', { method: 'POST' });
+                const d = await res.json();
+                engagedId = null;
+                renderDetectionList(displayedDets);
+                logLine('STOP ' + id, d.sim);
+                return;
+            }
+
+            selectedId = id;
+            engagedId  = id;
+            renderDetectionList(displayedDets);
+
+            // target_altitude=2.0: fly directly toward the vehicle and
+            // descend as close as is safely allowed (the server enforces a
+            // hard minimum altitude floor so this can never command the
+            // drone all the way into the vehicle or the ground). Works the
+            // same whether the vehicle is parked or moving — the server
+            // keeps re-aiming at its live position until you press Stop.
+            const res = await fetch('/api/track_vehicle', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ vid: det.id, target_altitude: 2.0 })
+            });
+            const d = await res.json();
+
+            if (d.ok) {
+                const colour = det.colour && det.colour !== 'unknown'
+                    ? capitalise(det.colour) + ' ' : '';
+                logLine(
+                    'GOTO ' + det.id + ' ' + colour + capitalise(det.type) +
+                    ' → closing in, target alt=' + d.actual_target_altitude + 'm',
+                    d.sim
+                );
+            } else {
+                engagedId = null;
+                renderDetectionList(displayedDets);
+                logLine('GOTO ' + id + ' failed: ' + (d.error || 'unknown error'), false);
+            }
+        }
+
+        // If the tracker loses the vehicle mid-approach, the server stops
+        // the engagement on its own — reflect that back in the button UI.
+        socket.on('engagement_status', function(data) {
+            if (!data.active && data.vid === engagedId) {
+                engagedId = null;
+                renderDetectionList(displayedDets);
+                const log = document.getElementById('cmd-log');
+                if (log) {
+                    const p = document.createElement('p');
+                    p.innerText = '[STOPPED] ' + data.vid + ' — ' + (data.reason || 'stopped');
+                    log.appendChild(p);
+                    log.scrollTop = log.scrollHeight;
+                }
+            }
+        });
+
+        // ── Landing sequence ──────────────────────────
+        let landingActive = false;
+
+        socket.on('landing_status', function(data) {
+            landingActive = (data.state !== 'idle');
+            const btn      = document.getElementById('landing-btn');
+            const bar      = document.getElementById('landing-status-bar');
+            const stateTxt = document.getElementById('landing-state-text');
+            const altTxt   = document.getElementById('landing-alt-text');
+
+            if (btn) {
+                btn.classList.remove('active', 'landed');
+                if (data.state === 'landed') {
+                    btn.classList.add('landed');
+                    btn.innerHTML = '✅ Landed';
+                } else if (landingActive) {
+                    btn.classList.add('active');
+                    btn.innerHTML = '⏹ Abort Landing';
+                } else {
+                    btn.innerHTML = '🛬 Landing';
+                }
+            }
+            if (bar) {
+                bar.style.display = (data.state === 'idle') ? 'none' : 'flex';
+            }
+            if (stateTxt) stateTxt.innerText = data.state;
+            if (altTxt && data.altitude !== undefined) {
+                altTxt.innerText = 'Alt: ' + data.altitude.toFixed(1) + 'm';
+            }
+
+            // Log into the same cmd-log used for drone_cmd, if present
+            const log = document.getElementById('cmd-log');
+            if (log && data.log) {
+                const p = document.createElement('p');
+                p.innerText = data.log;
+                log.appendChild(p);
+                log.scrollTop = log.scrollHeight;
+            }
+        });
+
+        async function toggleLanding() {
+            const btn = document.getElementById('landing-btn');
+            try {
+                if (landingActive) {
+                    const res = await fetch('/api/abort_landing', { method: 'POST' });
+                    await res.json();
+                } else {
+                    const res = await fetch('/api/start_landing', { method: 'POST' });
+                    const d   = await res.json();
+                    if (!d.ok) {
+                        alert(d.error || 'Could not start landing sequence');
+                    }
+                }
+            } catch (e) {
+                console.error('Landing toggle failed', e);
+            }
+        }
+
+        async function connectPixhawk() {
+            const res = await fetch('/api/mavlink_connect', { method: 'POST' });
+            const d   = await res.json();
+            const btn = document.getElementById('pixhawk-btn');
+            if (btn) {
+                if (d.status === 'connected') {
+                    btn.style.background = '#28a745';
+                    btn.innerHTML = '✅ Pixhawk Connected';
+                } else {
+                    btn.style.background = '#ffc107';
+                    btn.style.color = '#333';
+                    btn.innerHTML = '🔌 Simulation Mode';
+                }
+            }
+            const dot = document.getElementById('mav-dot');
+            if (dot) dot.className = 'mav-dot ' + d.status;
+        }
+
+        // Clicking the Mode button opens a small popup showing both
+        // STABILIZE and RTL — whichever one matches the drone's CURRENT
+        // mode is shown disabled, so only the other (valid) option can
+        // actually be clicked. Re-fetches the real mode from the server
+        // EVERY time the popup opens (rather than trusting whatever the
+        // browser last cached), so a missed socket update or stale state
+        // can't leave the wrong option disabled.
+        async function toggleFlightModeMenu(event) {
+            event.stopPropagation();
+            const dropdown = document.getElementById('flight-mode-dropdown');
+            if (!dropdown) return;
+
+            if (dropdown.classList.contains('show')) {
+                dropdown.classList.remove('show');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/flight_mode');
+                const d   = await res.json();
+                setFlightModeLabel(d.mode);
+            } catch (e) { /* fall back to whatever state we already had */ }
+
+            dropdown.classList.add('show');
+        }
+
+        // Closes the dropdown when clicking anywhere else on the page.
+        document.addEventListener('click', function() {
+            const dropdown = document.getElementById('flight-mode-dropdown');
+            if (dropdown) dropdown.classList.remove('show');
+        });
+
+        // Called when the user clicks one of the two dropdown options.
+        // The backend itself still just auto-toggles based on the
+        // drone's actual current mode (unchanged) — but since the
+        // dropdown only lets you click the mode you're NOT currently in,
+        // the result always matches what was clicked.
+        async function selectFlightMode(mode) {
+            document.getElementById('flight-mode-dropdown').classList.remove('show');
+
+            const res = await fetch('/api/toggle_flight_mode', { method: 'POST' });
+            const d   = await res.json();
+            const log = document.getElementById('cmd-log');
+            if (log) {
+                const p = document.createElement('p');
+                p.innerText = (d.sim ? '[SIM] ' : '[REAL] ') +
+                    'MODE ' + d.previous_mode + ' -> ' + d.target_mode +
+                    (d.ok ? ' (sent)' : ' (FAILED)');
+                log.appendChild(p);
+                log.scrollTop = log.scrollHeight;
+                while (log.children.length > 10) log.removeChild(log.firstChild);
+            }
+            // Optimistic update — the telemetry-confirmed value will
+            // arrive shortly after via the flight_mode_update socket event
+            // and overwrite this if the real Pixhawk reports something else.
+            if (d.ok) setFlightModeLabel(d.target_mode);
+        }
+        // ── End MAVLink JS ──────────────────────────
+
+        window.onload = function() {
+            // Filter initial summary rendered by server
+            const preEl = document.querySelector('.summary-content pre');
+            if (preEl && preEl.innerText) {
+                preEl.innerText = filterSummary(preEl.innerText);
+            }
+
+            // Fetch current flight mode on load (socket event only fires
+            // on a subsequent change, not for the state at page-load time)
+            fetch('/api/flight_mode')
+                .then(res => res.json())
+                .then(d => setFlightModeLabel(d.mode))
+                .catch(() => {});
+        };
+    </script>
+</head>
+<body>
+
+    <!-- ── Top right logo ── -->
+    <div class="logo-corner">
+        <img src="/logo.png" alt="Logo">
+    </div>
+
+    <!-- ── Logo Header ── -->
+    <div class="header">
+        <svg class="logo-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Outer ring -->
+            <circle cx="24" cy="24" r="20" stroke="#007bff" stroke-width="2" fill="none" opacity="0.3"/>
+            <!-- Inner ring -->
+            <circle cx="24" cy="24" r="13" stroke="#007bff" stroke-width="1.5" fill="none" opacity="0.5"/>
+            <!-- Centre dot -->
+            <circle cx="24" cy="24" r="4" fill="#007bff"/>
+            <!-- Crosshair lines -->
+            <line x1="24" y1="2"  x2="24" y2="10" stroke="#007bff" stroke-width="2" stroke-linecap="round"/>
+            <line x1="24" y1="38" x2="24" y2="46" stroke="#007bff" stroke-width="2" stroke-linecap="round"/>
+            <line x1="2"  y1="24" x2="10" y2="24" stroke="#007bff" stroke-width="2" stroke-linecap="round"/>
+            <line x1="38" y1="24" x2="46" y2="24" stroke="#007bff" stroke-width="2" stroke-linecap="round"/>
+            <!-- Diagonal ticks -->
+            <line x1="7"  y1="7"  x2="11" y2="11" stroke="#007bff" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+            <line x1="41" y1="7"  x2="37" y2="11" stroke="#007bff" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+            <line x1="7"  y1="41" x2="11" y2="37" stroke="#007bff" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+            <line x1="41" y1="41" x2="37" y2="37" stroke="#007bff" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+        </svg>
+        <div class="logo-text">
+            <span class="logo-title">AI Vehicle Recognition</span>
+            <span class="logo-sub">Drone Surveillance System</span>
+        </div>
+    </div>
+
+    <!-- ── Main Container ── -->
+    <div class="container">
+
+        <!-- Video side -->
+        <div class="video">
+            <div class="video-controls">
+                <select id="video-source" onchange="changeVideoSource()">
+                    {% for video in video_files %}
+                    <option value="videos/{{ video }}"
+                        {% if video == current_video %}selected{% endif %}>
+                        {{ video.lower().replace('.mp4','').replace('.MP4','') }}
+                    </option>
+                    {% endfor %}
+                    <option value="__cam0__">📷 Live Camera (USB / Built-in)</option>
+                    <option value="__rtsp__">📡 RTSP Stream (Drone Camera)</option>
+                </select>
+                <!-- RTSP URL input — shown only when RTSP option selected -->
+                <div id="rtsp-input-row" style="display:none; margin-top:4px; display:none;">
+                    <input  id="rtsp-url"
+                            type="text"
+                            placeholder="rtsp://192.168.x.x/stream"
+                            style="width:68%; padding:4px 6px; border-radius:4px;
+                                   border:1px solid #ccc; font-size:0.82em;"
+                    />
+                    <button onclick="applyRtsp()"
+                            style="padding:4px 10px; background:#007bff; color:#fff;
+                                   border:none; border-radius:4px; cursor:pointer;
+                                   font-size:0.82em; margin-left:4px;">
+                        Connect
+                    </button>
+                </div>
+            </div>
+
+            <img src="{{ url_for('video_feed') }}" alt="Video Stream">
+
+            <div class="vehicle-count">
+                <p>Vehicles: <span id="vehicle-count">{{ vehicle_count }}</span></p>
+                <div class="type-counts">
+                    <span>🚗 Car: <b id="cnt-car">0</b></span>
+                    <span>🚐 Van: <b id="cnt-van">0</b></span>
+                    <span>🏍️ Motorcycle: <b id="cnt-moto">0</b></span>
+                    <span>🚛 Lorry: <b id="cnt-lorry">0</b></span>
+                    <span>🚌 Bus: <b id="cnt-bus">0</b></span>
+                    <button onclick="connectPixhawk()" class="pixhawk-inline-btn" id="pixhawk-btn">
+                        🔌 Connect Pixhawk
+                    </button>
+                    <button onclick="toggleLanding()" class="pixhawk-inline-btn landing-btn" id="landing-btn">
+                        🛬 Landing
+                    </button>
+                    <div class="flight-mode-wrap">
+                        <button onclick="toggleFlightModeMenu(event)" class="pixhawk-inline-btn" id="flight-mode-btn">
+                            🎮 Mode: <span id="flight-mode-label" style="color:black">UNKNOWN</span>
+                        </button>
+                        <div class="flight-mode-dropdown" id="flight-mode-dropdown">
+                            <button class="flight-mode-option" id="flight-mode-opt-stabilize"
+                                    onclick="selectFlightMode('STABILIZE')">
+                                🟢 Stabilize
+                            </button>
+                            <button class="flight-mode-option" id="flight-mode-opt-rtl"
+                                    onclick="selectFlightMode('RTL')">
+                                🔴 Return (RTL)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="landing-status-bar" class="landing-status-bar" style="display:none;">
+                    <span id="landing-state-text">Idle</span>
+                    <span id="landing-alt-text"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info side -->
+        <div class="info">
+
+            <div class="summary-wrapper">
+                <h2>AI Vehicle Recognition</h2>
+                <div id="ai-loader" class="loader"></div>
+                <div class="summary-content">
+                    <pre>{{ summary_content if summary_content else 'Waiting for minicpm-v analysis...\n\nMake sure Ollama is running:\n  ollama run minicpm-v' }}</pre>
+                </div>
+            </div>
+
+            <!-- Per-vehicle GOTO list -->
+            <div class="goto-panel">
+                <div class="detection-list-wrap">
+                    <div class="detection-list-title">Select Vehicle to Go To :</div>
+                    <div id="detection-list">
+                        <p style="color:#aaa;font-size:0.82em;margin:6px 0;">No vehicles detected</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hidden cmd-log kept for JS compatibility -->
+            <div id="cmd-log" style="display:none;"></div>
+
+        </div>
+    </div>
+
+</body>
+</html>

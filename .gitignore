@@ -1,0 +1,25 @@
+# Virtual environments & Python cache
+venv/
+env/
+__pycache__/
+*.pyc
+.cache/
+
+# Large data — do NOT upload to GitHub
+videos/
+Vid/
+captures/
+logs/
+Audio/
+Summary/
+*.mp4
+*.avi
+
+# Model weights — upload via Git LFS or Google Drive instead
+*.pt
+*.onnx
+*.h5
+
+# OS files
+Thumbs.db
+.DS_Store
